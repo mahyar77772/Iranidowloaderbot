@@ -1,33 +1,14 @@
 import os
 import requests
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 TOKEN = os.environ.get("TOKEN")
-CHANNEL = "@kanalasli2424"  # اسم کانال شما
 
-async def is_member(user_id, context):
-    try:
-        member = await context.bot.get_chat_member(CHANNEL, user_id)
-        return member.status in ["member", "administrator", "creator"]
-    except:
-        return False
+def start(update, context):
+    update.message.reply_text("سلام! لینک مستقیم دانلود رو بفرست.")
 
-async def start(update: Update, context):
-    await update.message.reply_text(
-        "🎯 به ربات دانلودر خوش آمدید!\n\n"
-        "📌 لینک مستقیم دانلود رو بفرست تا برات دانلود کنم.\n"
-        f"🔒 برای استفاده، ابتدا عضو کانال ما شوید:\n{CHANNEL}"
-    )
-
-async def download_file(update: Update, context):
-    user_id = update.effective_user.id
+def download_file(update, context):
     url = update.message.text
-
-    if not await is_member(user_id, context):
-        await update.message.reply_text(f"❌ ابتدا در کانال {CHANNEL} عضو شوید.")
-        return
-
     try:
         response = requests.get(url, stream=True)
         if response.status_code == 200:
@@ -35,15 +16,17 @@ async def download_file(update: Update, context):
             with open(filename, 'wb') as f:
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
-            await update.message.reply_document(document=open(filename, 'rb'))
+            update.message.reply_document(document=open(filename, 'rb'))
             os.remove(filename)
         else:
-            await update.message.reply_text("❌ لینک معتبر نیست.")
+            update.message.reply_text("❌ لینک معتبر نیست.")
     except Exception as e:
-        await update.message.reply_text(f"❌ خطا: {str(e)}")
+        update.message.reply_text(f"❌ خطا: {str(e)}")
 
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_file))
-print("✅ ربات با موفقیت روشن شد و در حال اجراست...")
-app.run_polling()
+updater = Updater(token=TOKEN, use_context=True)
+dp = updater.dispatcher
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(MessageHandler(Filters.text & ~Filters.command, download_file))
+print("ربات در حال اجراست...")
+updater.start_polling()
+updater.idle()
